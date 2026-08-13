@@ -54,6 +54,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
+            gap: 10px;
         }
 
         .card {
@@ -161,6 +162,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }
 
         .btn-theme:hover {
@@ -185,7 +187,7 @@
     <div class="card">
         <div class="header-bar">
             <h1>救護秘錄器時間自動校正與換算器</h1>
-            <button id="theme-btn" class="btn-theme" onclick="toggleTheme()">🌙 夜間模式</button>
+            <button id="theme-btn" class="btn-theme" onclick="cycleTheme()">🌐 自動</button>
         </div>
         <p class="desc">設定同一個關鍵瞬間（例如：接觸患者）時各鏡頭顯示的時間，自動對齊秒差並即時換算。</p>
         
@@ -226,30 +228,53 @@
         { id: 'cam3', name: '駕駛', time: '13:59:40', isBase: false }
     ];
 
-    // 切換主題邏輯
-    function toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        setTheme(newTheme);
+    // 主題狀態管理: 'auto' | 'light' | 'dark'
+    let themeSetting = 'auto';
+
+    // 循環切換主題: auto -> light -> dark -> auto
+    function cycleTheme() {
+        if (themeSetting === 'auto') {
+            themeSetting = 'light';
+        } else if (themeSetting === 'light') {
+            themeSetting = 'dark';
+        } else {
+            themeSetting = 'auto';
+        }
+        applyTheme();
     }
 
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
+    // 計算當前應套用的真實主題
+    function getEffectiveTheme() {
+        if (themeSetting === 'auto') {
+            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        return themeSetting;
+    }
+
+    // 更新 DOM 與按鈕文字
+    function applyTheme() {
+        const effective = getEffectiveTheme();
+        document.documentElement.setAttribute('data-theme', effective);
+
         const themeBtn = document.getElementById('theme-btn');
-        if (theme === 'dark') {
-            themeBtn.innerHTML = '☀️ 日間模式';
-        } else {
-            themeBtn.innerHTML = '🌙 夜間模式';
+        if (themeBtn) {
+            if (themeSetting === 'auto') {
+                themeBtn.innerHTML = `🌐 自動 (${effective === 'dark' ? '夜間' : '日間'})`;
+            } else if (themeSetting === 'light') {
+                themeBtn.innerHTML = '☀️ 日間模式';
+            } else {
+                themeBtn.innerHTML = '🌙 夜間模式';
+            }
         }
     }
 
-    // 依系統設定初始化主題
-    function initTheme() {
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            setTheme('dark');
-        } else {
-            setTheme('light');
-        }
+    // 監聽裝置系統主題變更（僅在 auto 模式生效）
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (themeSetting === 'auto') {
+                applyTheme();
+            }
+        });
     }
 
     function timeToSeconds(t) { 
@@ -352,7 +377,7 @@
     }
 
     window.onload = () => {
-        initTheme();
+        applyTheme();
         render(); 
         if(cameras.length > 0) { 
             document.getElementById('query-time').value = cameras[0].time; 
