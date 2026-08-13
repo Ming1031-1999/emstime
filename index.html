@@ -18,7 +18,6 @@
             --locked-bg: #f1f5f9;
         }
 
-        /* 夜間模式色彩定義 */
         [data-theme="dark"] {
             --primary: #3b82f6;
             --primary-hover: #2563eb;
@@ -137,10 +136,11 @@
         }
 
         input:disabled {
-            opacity: 0.9;
+            opacity: 0.95;
             cursor: not-allowed;
             font-weight: bold;
             color: var(--accent);
+            background-color: var(--locked-bg);
         }
 
         input:focus, select:focus {
@@ -214,6 +214,15 @@
             color: #cbd5e1;
         }
 
+        .btn-anchor {
+            background: #16a34a;
+            color: white;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .btn-anchor:hover { background: #15803d; }
+
         .btn-add { background: var(--primary); color: white; padding: 8px 14px; font-size: 0.85rem; }
         .btn-add:hover { opacity: 0.9; }
 
@@ -247,18 +256,21 @@
             <h1>救護秘錄器時間自動同步器</h1>
             <button id="theme-btn" class="btn-theme" onclick="cycleTheme()">🌐 自動</button>
         </div>
-        <p class="desc">強制 24 小時制（HH:MM:SS）。解鎖欄位設定基準時差，上鎖欄位將自動即時換算。</p>
+        <p class="desc">填入關鍵對齊時間後儲存校正點，隨後輸入任何未上鎖鏡頭時間，上鎖欄位即自動即時換算。</p>
 
         <div class="tip-box">
-            💡 <strong>操作說明：</strong><br>
-            1. 先將所有人設為 <strong>🔓 未上鎖</strong>，輸入同一瞬間（如：接觸患者）的時間進行對齊校正。<br>
-            2. 校正完成後，將不需要手動輸入的人員點擊 <strong>🔒 上鎖</strong>。<br>
-            3. 之後只要在任何一個未上鎖的欄位輸入時間（24小時制），所有上鎖欄位就會<strong>自動換算為對應畫面時間</strong>！
+            💡 <strong>三步操作說明：</strong><br>
+            1. **設定對齊點**：將所有人設為 🔓 未上鎖，填入同一瞬間（如：接觸患者）的時間，點擊綠色 **「📌 儲存為對齊對照點」**。<br>
+            2. **鎖定其他鏡頭**：將不需要手動輸入的鏡頭點擊 **🔒 上鎖**。<br>
+            3. **自動換算查詢**：在任何 🔓 未上鎖的欄位輸入時間，所有 🔒 上鎖欄位就會<strong>自動即時換算為對應畫面時間</strong>！
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span style="font-weight: 600; font-size: 1rem; color: var(--primary);">出勤救護人員列表</span>
-            <button class="btn-add" onclick="addCrew()">+ 新增人員</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-anchor" onclick="saveAnchorPoints()">📌 儲存為對齊對照點</button>
+                <button class="btn-add" onclick="addCrew()">+ 新增人員</button>
+            </div>
+            <span style="font-size: 0.8rem; opacity: 0.7;" id="anchor-status-text">已對齊基準時間</span>
         </div>
 
         <div id="crew-container" class="crew-list"></div>
@@ -266,11 +278,11 @@
 </div>
 
 <script>
-    // 預設救護人員資料 (以字母 ABCD 代替，支援自訂修改)
+    // 預設資料（預設以 隊員 A, B, C, D 命名，並預設對齊時間）
     let crewList = [
         { id: 'c1', name: '隊員 A', time: '12:00:00', anchorTime: '12:00:00', isLocked: false, isBase: true },
-        { id: 'c2', name: '隊員 B', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false },
-        { id: 'c3', name: '隊員 C', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false },
+        { id: 'c2', name: '隊員 B', time: '12:00:25', anchorTime: '12:00:25', isLocked: true, isBase: false },
+        { id: 'c3', name: '隊員 C', time: '11:59:40', anchorTime: '11:59:40', isLocked: true, isBase: false },
         { id: 'c4', name: '隊員 D', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false }
     ];
 
@@ -328,7 +340,25 @@
         return `${h}:${m}:${sec}`; 
     }
 
-    // 新增人員 (自動接續以字母命名：隊員 E, 隊員 F...)
+    // 將目前的輸入時間儲存為對齊基準點 (Anchor Points)
+    function saveAnchorPoints() {
+        crewList.forEach(c => {
+            c.anchorTime = c.time;
+        });
+        updateBadges();
+        const statusText = document.getElementById('anchor-status-text');
+        if (statusText) {
+            statusText.textContent = "✅ 已更新並儲存對齊錨點";
+            statusText.style.color = "#16a34a";
+            setTimeout(() => {
+                statusText.textContent = "已對齊基準時間";
+                statusText.style.color = "";
+            }, 3000);
+        }
+        alert("已成功設定當前所有人的時間為【對齊基準點】！\n現在您可在未上鎖欄位輸入任意時間，其他已上鎖欄位將自動連動換算。");
+    }
+
+    // 新增人員
     function addCrew() {
         const nextLetter = String.fromCharCode(65 + (crewList.length % 26));
         const defaultName = `隊員 ${nextLetter}`;
@@ -343,7 +373,7 @@
             name: name.trim() || defaultName,
             time: defaultTime,
             anchorTime: defaultTime,
-            isLocked: false,
+            isLocked: true,
             isBase: false
         });
         render();
@@ -372,7 +402,7 @@
         }
     }
 
-    // 當使用者在「未上鎖」欄位輸入時間時觸發
+    // 當使用者在「未上鎖」欄位輸入時間時，即時運算並更新所有上鎖欄位
     function handleTimeInput(sourceId, newTime) {
         if (!newTime) return;
         const source = crewList.find(c => c.id === sourceId);
@@ -380,17 +410,14 @@
 
         source.time = newTime;
 
-        if (!source.isLocked) {
-            source.anchorTime = newTime;
-        }
-
         const sourceAnchorSec = timeToSeconds(source.anchorTime);
         const sourceCurrentSec = timeToSeconds(source.time);
+        const deltaSec = sourceCurrentSec - sourceAnchorSec; // 時間位移秒數
 
         crewList.forEach(target => {
             if (target.isLocked && target.id !== sourceId) {
                 const targetAnchorSec = timeToSeconds(target.anchorTime);
-                const targetNewSec = sourceCurrentSec + (targetAnchorSec - sourceAnchorSec);
+                const targetNewSec = targetAnchorSec + deltaSec;
                 target.time = secondsToTime(targetNewSec);
                 
                 const inputEl = document.getElementById(`time-input-${target.id}`);
@@ -403,7 +430,7 @@
         updateBadges();
     }
 
-    // 自訂名稱動態更新
+    // 自訂名稱更新
     function updateCrewName(id, newName) {
         const c = crewList.find(item => item.id === id);
         if (c) c.name = newName;
@@ -435,7 +462,7 @@
         });
     }
 
-    // 渲染 UI
+    // 渲染列表
     function render() {
         const container = document.getElementById('crew-container');
         container.innerHTML = '';
@@ -475,7 +502,7 @@
                 <div>
                     <label>鎖定狀態：</label>
                     <button class="btn-lock ${c.isLocked ? 'locked' : 'unlocked'}" onclick="toggleLock('${c.id}')">
-                        ${c.isLocked ? '🔒 已上鎖 (自動換算)' : '🔓 未上鎖 (編輯中)'}
+                        ${c.isLocked ? '🔒 已上鎖 (自動換算)' : '🔓 未上鎖 (輸入中)'}
                     </button>
                 </div>
                 <div>
