@@ -185,6 +185,10 @@
             white-space: nowrap;
         }
 
+        .btn-theme:hover {
+            border-color: var(--accent);
+        }
+
         .btn-lock {
             padding: 8px 12px;
             font-size: 0.85rem;
@@ -249,7 +253,7 @@
             💡 <strong>操作說明：</strong><br>
             1. 先將所有人設為 <strong>🔓 未上鎖</strong>，輸入同一瞬間（如：接觸患者）的時間進行對齊校正。<br>
             2. 校正完成後，將不需要手動輸入的人員點擊 <strong>🔒 上鎖</strong>。<br>
-            3. 之後只要在任何一個未上鎖的欄位輸入時間（24小時制，如 19:31:18），所有上鎖欄位就會<strong>自動換算為對應畫面時間</strong>！
+            3. 之後只要在任何一個未上鎖的欄位輸入時間（24小時制），所有上鎖欄位就會<strong>自動換算為對應畫面時間</strong>！
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -262,12 +266,12 @@
 </div>
 
 <script>
-    // 預設救護人員資料 (anchorTime 紀錄對齊時的基準時間)
+    // 預設救護人員資料 (以字母 ABCD 代替，支援自訂修改)
     let crewList = [
-        { id: 'c1', name: '弘毅', time: '19:31:18', anchorTime: '19:31:18', isLocked: false, isBase: true },
-        { id: 'c2', name: '焜弘', time: '19:32:40', anchorTime: '19:32:40', isLocked: true, isBase: false },
-        { id: 'c3', name: '盈羽', time: '19:27:48', anchorTime: '19:27:48', isLocked: true, isBase: false },
-        { id: 'c4', name: '忠和', time: '19:28:30', anchorTime: '19:28:30', isLocked: true, isBase: false }
+        { id: 'c1', name: '隊員 A', time: '12:00:00', anchorTime: '12:00:00', isLocked: false, isBase: true },
+        { id: 'c2', name: '隊員 B', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false },
+        { id: 'c3', name: '隊員 C', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false },
+        { id: 'c4', name: '隊員 D', time: '12:00:00', anchorTime: '12:00:00', isLocked: true, isBase: false }
     ];
 
     let themeSetting = 'auto';
@@ -324,17 +328,19 @@
         return `${h}:${m}:${sec}`; 
     }
 
-    // 新增人員
+    // 新增人員 (自動接續以字母命名：隊員 E, 隊員 F...)
     function addCrew() {
-        const name = prompt("請輸入新增人員姓名或職務：", `隊員 ${crewList.length + 1}`);
+        const nextLetter = String.fromCharCode(65 + (crewList.length % 26));
+        const defaultName = `隊員 ${nextLetter}`;
+        const name = prompt("請輸入新增人員姓名或職務：", defaultName);
         if (name === null) return;
         
         const baseCam = crewList.find(c => c.isBase) || crewList[0];
-        const defaultTime = baseCam ? baseCam.time : '19:30:00';
+        const defaultTime = baseCam ? baseCam.time : '12:00:00';
 
         crewList.push({
             id: 'c_' + Date.now(),
-            name: name.trim() || `隊員 ${crewList.length + 1}`,
+            name: name.trim() || defaultName,
             time: defaultTime,
             anchorTime: defaultTime,
             isLocked: false,
@@ -397,7 +403,7 @@
         updateBadges();
     }
 
-    // 更新名稱
+    // 自訂名稱動態更新
     function updateCrewName(id, newName) {
         const c = crewList.find(item => item.id === id);
         if (c) c.name = newName;
@@ -457,7 +463,7 @@
             row.innerHTML = `
                 <div>
                     <label>人員姓名 / 職務：</label>
-                    <input type="text" value="${c.name}" oninput="updateCrewName('${c.id}', this.value)">
+                    <input type="text" value="${c.name}" placeholder="如：隊員 A、主救" oninput="updateCrewName('${c.id}', this.value)">
                 </div>
                 <div>
                     <label>秘錄器時間 (24小時制)：</label>
