@@ -243,13 +243,13 @@
             <h1>救護秘錄器時間自動同步器</h1>
             <button id="theme-btn" class="btn-theme" onclick="cycleTheme()">🌐 自動</button>
         </div>
-        <p class="desc">解鎖欄位設定基準時差，上鎖欄位將自動隨著其他輸入的時間即時換算。</p>
+        <p class="desc">強制 24 小時制（HH:MM:SS）。解鎖欄位設定基準時差，上鎖欄位將自動即時換算。</p>
 
         <div class="tip-box">
             💡 <strong>操作說明：</strong><br>
             1. 先將所有人設為 <strong>🔓 未上鎖</strong>，輸入同一瞬間（如：接觸患者）的時間進行對齊校正。<br>
             2. 校正完成後，將不需要手動輸入的人員點擊 <strong>🔒 上鎖</strong>。<br>
-            3. 之後只要在任何一個未上鎖的欄位輸入時間，所有上鎖欄位就會<strong>自動換算為對應畫面時間</strong>！
+            3. 之後只要在任何一個未上鎖的欄位輸入時間（24小時制，如 19:31:18），所有上鎖欄位就會<strong>自動換算為對應畫面時間</strong>！
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -307,6 +307,7 @@
         });
     }
 
+    // 時間字串 (HH:MM:SS) 轉總秒數
     function timeToSeconds(t) { 
         if (!t || typeof t !== 'string') return 0; 
         const parts = t.split(':').map(Number); 
@@ -314,6 +315,7 @@
         return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0); 
     }
 
+    // 總秒數轉時間字串 (HH:MM:SS 24小時制)
     function secondsToTime(s) { 
         s = (s % 86400 + 86400) % 86400; 
         const h = String(Math.floor(s / 3600)).padStart(2, '0');
@@ -322,6 +324,7 @@
         return `${h}:${m}:${sec}`; 
     }
 
+    // 新增人員
     function addCrew() {
         const name = prompt("請輸入新增人員姓名或職務：", `隊員 ${crewList.length + 1}`);
         if (name === null) return;
@@ -340,6 +343,7 @@
         render();
     }
 
+    // 刪除人員
     function removeCrew(id) {
         if (crewList.length <= 1) return alert("至少需保留一位人員！");
         crewList = crewList.filter(c => c.id !== id);
@@ -347,11 +351,13 @@
         render();
     }
 
+    // 設定基準人
     function setBaseCrew(id) {
         crewList.forEach(c => c.isBase = (c.id === id));
         render();
     }
 
+    // 上鎖/解鎖開關
     function toggleLock(id) {
         const target = crewList.find(c => c.id === id);
         if (target) {
@@ -360,6 +366,7 @@
         }
     }
 
+    // 當使用者在「未上鎖」欄位輸入時間時觸發
     function handleTimeInput(sourceId, newTime) {
         if (!newTime) return;
         const source = crewList.find(c => c.id === sourceId);
@@ -390,11 +397,13 @@
         updateBadges();
     }
 
+    // 更新名稱
     function updateCrewName(id, newName) {
         const c = crewList.find(item => item.id === id);
         if (c) c.name = newName;
     }
 
+    // 即時更新時差標籤
     function updateBadges() {
         const baseCam = crewList.find(c => c.isBase) || crewList[0];
         const baseAnchorSec = timeToSeconds(baseCam.anchorTime);
@@ -420,6 +429,7 @@
         });
     }
 
+    // 渲染 UI
     function render() {
         const container = document.getElementById('crew-container');
         container.innerHTML = '';
@@ -450,8 +460,8 @@
                     <input type="text" value="${c.name}" oninput="updateCrewName('${c.id}', this.value)">
                 </div>
                 <div>
-                    <label>秘錄器畫面時間：</label>
-                    <input type="time" step="1" id="time-input-${c.id}" value="${c.time}" 
+                    <label>秘錄器時間 (24小時制)：</label>
+                    <input type="time" step="1" lang="en-GB" id="time-input-${c.id}" value="${c.time}" 
                         ${c.isLocked ? 'disabled' : ''} 
                         oninput="handleTimeInput('${c.id}', this.value)" 
                         onchange="handleTimeInput('${c.id}', this.value)">
