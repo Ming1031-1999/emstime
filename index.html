@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>救護秘錄器時間自動對齊換算器</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-hover: #1e40af;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --accent: #0284c7;
+            --input-bg: #ffffff;
+            --card-sub: #f1f5f9;
+        }
+
+        [data-theme="dark"] {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --text: #f8fafc;
+            --accent: #38bdf8;
+            --input-bg: #0f172a;
+            --card-sub: #0f172a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .desc {
+            font-size: 0.85rem;
+            opacity: 0.75;
+            margin: 0 0 16px 0;
+            line-height: 1.4;
+        }
+
+        /* 步驟一：設定列表 */
+        .setup-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .setup-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1.8fr 1.2fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--card-sub);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .setup-row {
+                grid-template-columns: 1fr 1fr;
+            }
+            .setup-row .btn-group {
+                grid-column: span 2;
+                display: flex;
+                justify-content: flex-end;
+            }
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            background-color: var(--input-bg);
+            color: var(--text);
+        }
+
+        input:focus, select:focus {
+            outline: 2px solid var(--accent);
+            border-color: transparent;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .badge-base { background: #dbeafe; color: #1e40af; }
+        .badge-ahead { background: #dcfce7; color: #166534; }
+        .badge-behind { background: #fee2e2; color: #991b1b; }
+
+        [data-theme="dark"] .badge-base { background: #1e3a8a; color: #93c5fd; }
+        [data-theme="dark"] .badge-ahead { background: #14532d; color: #86efac; }
+        [data-theme="dark"] .badge-behind { background: #7f1d1d; color: #fca5a5; }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .btn-theme {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-add { background: var(--primary); color: white; padding: 8px 14px; font-size: 0.85rem; }
+        .btn-del { background: #ef4444; color: white; padding: 6px 10px; font-size: 0.8rem; }
+        .btn-base { background: none; border: none; color: var(--accent); font-size: 0.8rem; cursor: pointer; text-decoration: underline; }
+
+        /* 步驟二：查詢卡片 */
+        .lookup-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 500px) {
+            .lookup-box { grid-template-columns: 1fr; }
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
+        .result-card {
+            background: var(--card-sub);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .result-card.active {
+            border: 2px solid var(--accent);
+            background: rgba(2, 132, 199, 0.05);
+        }
+
+        .result-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-time {
+            font-family: monospace;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .result-diff {
+            font-size: 0.75rem;
+            opacity: 0.75;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- 頂部卡片：對位設定 -->
+    <div class="card">
+        <div class="header-bar">
+            <div class="card-title">📌 步驟 1. 設定對齊對照點（接觸患者瞬間）</div>
+            <button id="theme-btn" class="btn-theme" onclick="cycleTheme()">🌐 自動</button>
+        </div>
+        <p class="desc">填入每支秘錄器在「同一個關鍵畫面」所顯示的時間。系統會自動算出秒差，打字即時計算不卡頓。</p>
+
+        <div id="setup-container" class="setup-list"></div>
+
+        <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+            <button class="btn-add" onclick="addCamera()">+ 新增秘錄器</button>
+        </div>
+    </div>
+
+    <!-- 下方卡片：即時畫面查詢 -->
+    <div class="card">
+        <div class="card-title">🔍 步驟 2. 審核影片時間換算查詢</div>
+        <p class="desc">看影片時，選擇你目前正看的鏡頭並輸入畫面上顯示的時間，下方會瞬間算出其他人對應的時間。</p>
+
+        <div class="lookup-box">
+            <div>
+                <label>選擇目前觀看的秘錄器：</label>
+                <select id="query-cam-select" onchange="updateCalculations()"></select>
+            </div>
+            <div>
+                <label>該秘錄器目前畫面時間 (24小時制)：</label>
+                <input type="time" step="1" lang="en-GB" id="query-time-input" value="12:05:00" oninput="updateCalculations()" onchange="updateCalculations()">
+            </div>
+        </div>
+
+        <label style="margin-bottom: 8px;">所有秘錄器對應時間：</label>
+        <div id="result-grid" class="result-grid"></div>
+    </div>
+
+</div>
+
+<script>
+    // 鏡頭初始資料
+    let cameras = [
+        { id: 'c1', name: '隊員 A', anchorTime: '12:00:00', isBase: true },
+        { id: 'c2', name: '隊員 B', anchorTime: '12:00:25', isBase: false },
+        { id: 'c3', name: '隊員 C', anchorTime: '11:59:40', isBase: false },
+        { id: 'c4', name: '隊員 D', anchorTime: '12:00:10', isBase: false }
+    ];
+
+    let themeSetting = 'auto';
+
+    // HH:MM:SS 轉總秒數
+    function timeToSeconds(t) { 
+        if (!t || typeof t !== 'string') return 0; 
+        const parts = t.split(':').map(Number); 
+        if (parts.length < 2 || parts.some(isNaN)) return 0;
+        return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0); 
+    }
+
+    // 總秒數轉 HH:MM:SS
+    function secondsToTime(s) { 
+        s = (s % 86400 + 86400) % 86400; 
+        const h = String(Math.floor(s / 3600)).padStart(2, '0');
+        const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+        const sec = String(Math.floor(s % 60)).padStart(2, '0');
+        return `${h}:${m}:${sec}`; 
+    }
+
+    // 首次初始化渲染 DOM 結構
+    function initSetupDOM() {
+        const container = document.getElementById('setup-container');
+        container.innerHTML = '';
+
+        cameras.forEach(c => {
+            const row = document.createElement('div');
+            row.className = 'setup-row';
+            row.id = `row-${c.id}`;
+            row.innerHTML = `
+                <div>
+                    <label>名稱：</label>
+                    <input type="text" value="${c.name}" oninput="onNameChange('${c.id}', this.value)">
+                </div>
+                <div>
+                    <label>對齊點時間：</label>
+                    <input type="time" step="1" lang="en-GB" value="${c.anchorTime}" oninput="onAnchorChange('${c.id}', this.value)" onchange="onAnchorChange('${c.id}', this.value)">
+                </div>
+                <div>
+                    <label>與基準時差：</label>
+                    <div id="badge-${c.id}"></div>
+                </div>
+                <div class="btn-group" style="margin-top: 14px;">
+                    ${!c.isBase ? `<button onclick="setBase('${c.id}')" class="btn-base">設為基準</button>` : '<span style="font-size:0.75rem; opacity:0.6;">[基準點]</span>'}
+                    ${!c.isBase ? `<button class="btn-del" onclick="removeCamera('${c.id}')" style="margin-left: 6px;">刪除</button>` : ''}
+                </div>
+            `;
+            container.appendChild(row);
+        });
+
+        updateSelectOptions();
+        updateBadges();
+        updateCalculations();
+    }
+
+    // 即時處理對齊時間變更 (完全不重繪 DOM，零卡頓)
+    function onAnchorChange(id, value) {
+        if (!value) return;
+        const cam = cameras.find(c => c.id === id);
+        if (cam) {
+            cam.anchorTime = value;
+            updateBadges();
+            updateCalculations();
+        }
+    }
+
+    // 即時處理名稱變更
+    function onNameChange(id, value) {
+        const cam = cameras.find(c => c.id === id);
+        if (cam) {
+            cam.name = value || '未命名';
+            updateSelectOptions();
+            updateCalculations();
+        }
+    }
+
+    // 切換基準機
+    function setBase(id) {
+        cameras.forEach(c => c.isBase = (c.id === id));
+        initSetupDOM();
+    }
+
+    // 新增鏡頭
+    function addCamera() {
+        const nextLetter = String.fromCharCode(65 + (cameras.length % 26));
+        const defaultName = `隊員 ${nextLetter}`;
+        const name = prompt("請輸入新增人員姓名或職務：", defaultName);
+        if (name === null) return;
+
+        const baseCam = cameras.find(c => c.isBase) || cameras[0];
+        const defaultTime = baseCam ? baseCam.anchorTime : '12:00:00';
+
+        cameras.push({
+            id: 'c_' + Date.now(),
+            name: name.trim() || defaultName,
+            anchorTime: defaultTime,
+            isBase: false
+        });
+
+        initSetupDOM();
+    }
+
+    // 刪除鏡頭
+    function removeCamera(id) {
+        if (cameras.length <= 1) return alert("至少需保留一支秘錄器！");
+        cameras = cameras.filter(c => c.id !== id);
+        if (!cameras.some(c => c.isBase)) cameras[0].isBase = true;
+        initSetupDOM();
+    }
+
+    // 更新時差 Badge 標籤
+    function updateBadges() {
+        const baseCam = cameras.find(c => c.isBase) || cameras[0];
+        const baseSec = timeToSeconds(baseCam.anchorTime);
+
+        cameras.forEach(c => {
+            const badgeEl = document.getElementById(`badge-${c.id}`);
+            if (badgeEl) {
+                const cSec = timeToSeconds(c.anchorTime);
+                const diff = cSec - baseSec;
+
+                if (c.isBase) {
+                    badgeEl.innerHTML = `<span class="badge badge-base">基準機 (0s)</span>`;
+                } else if (diff > 0) {
+                    badgeEl.innerHTML = `<span class="badge badge-ahead">快 ${diff} 秒</span>`;
+                } else if (diff < 0) {
+                    badgeEl.innerHTML = `<span class="badge badge-behind">慢 ${Math.abs(diff)} 秒</span>`;
+                } else {
+                    badgeEl.innerHTML = `<span class="badge badge-base">同步 (0s)</span>`;
+                }
+            }
+        });
+    }
+
+    // 更新查詢選單
+    function updateSelectOptions() {
+        const select = document.getElementById('query-cam-select');
+        const curVal = select.value;
+        select.innerHTML = '';
+
+        cameras.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            select.appendChild(opt);
+        });
+
+        if (curVal && cameras.some(c => c.id === curVal)) {
+            select.value = curVal;
+        }
+    }
+
+    // 計算並渲染下方對照結果 (精準且超順暢)
+    function updateCalculations() {
+        const select = document.getElementById('query-cam-select');
+        const queryTimeInput = document.getElementById('query-time-input');
+        const grid = document.getElementById('result-grid');
+
+        const srcId = select.value || (cameras[0] && cameras[0].id);
+        const queryTimeStr = queryTimeInput.value;
+
+        if (!srcId || !queryTimeStr) return;
+
+        const srcCam = cameras.find(c => c.id === srcId);
+        if (!srcCam) return;
+
+        const srcAnchorSec = timeToSeconds(srcCam.anchorTime);
+        const querySec = timeToSeconds(queryTimeStr);
+        const deltaSec = querySec - srcAnchorSec;
+
+        grid.innerHTML = '';
+
+        cameras.forEach(target => {
+            const targetAnchorSec = timeToSeconds(target.anchorTime);
+            const calculatedSec = targetAnchorSec + deltaSec;
+            const finalTimeStr = secondsToTime(calculatedSec);
+
+            const diffWithSrc = targetAnchorSec - srcAnchorSec;
+            let diffDesc = '';
+            if (target.id === srcCam.id) {
+                diffDesc = '目前觀看鏡頭';
+            } else if (diffWithSrc > 0) {
+                diffDesc = `比 ${srcCam.name} 快 ${diffWithSrc} 秒`;
+            } else if (diffWithSrc < 0) {
+                diffDesc = `比 ${srcCam.name} 慢 ${Math.abs(diffWithSrc)} 秒`;
+            } else {
+                diffDesc = '時間完全同步';
+            }
+
+            const card = document.createElement('div');
+            card.className = `result-card ${target.id === srcCam.id ? 'active' : ''}`;
+            card.innerHTML = `
+                <div class="result-name">
+                    <span>${target.name}</span>
+                    ${target.isBase ? '<small style="opacity:0.6;">(基準機)</small>' : ''}
+                </div>
+                <div class="result-time">${finalTimeStr}</div>
+                <div class="result-diff">${diffDesc}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // 主題管理
+    function cycleTheme() {
+        if (themeSetting === 'auto') themeSetting = 'light';
+        else if (themeSetting === 'light') themeSetting = 'dark';
+        else themeSetting = 'auto';
+        applyTheme();
+    }
+
+    function getEffectiveTheme() {
+        if (themeSetting === 'auto') {
+            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        return themeSetting;
+    }
+
+    function applyTheme() {
+        const effective = getEffectiveTheme();
+        document.documentElement.setAttribute('data-theme', effective);
+        const themeBtn = document.getElementById('theme-btn');
+        if (themeBtn) {
+            if (themeSetting === 'auto') {
+                themeBtn.innerHTML = `🌐 自動 (${effective === 'dark' ? '夜間' : '日間'})`;
+            } else if (themeSetting === 'light') {
+                themeBtn.innerHTML = '☀️ 日間模式';
+            } else {
+                themeBtn.innerHTML = '🌙 夜間模式';
+            }
+        }
+    }
+
+    window.onload = () => {
+        applyTheme();
+        initSetupDOM();
+    };
+</script>
+
+</body>
+</html>
