@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>救護秘錄器時間自動校正與換算器</title>
+    <style>
+        :root { --primary: #1e3a8a; --primary-hover: #1e40af; --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --accent: #0284c7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { max-width: 900px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1 { font-size: 1.3rem; margin: 0 0 8px 0; color: var(--primary); }
+        .desc { font-size: 0.85rem; color: #64748b; margin: 0 0 16px 0; }
+        .section-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
+        .input-row { display: grid; grid-template-columns: 2fr 2fr 1.5fr auto; gap: 10px; align-items: center; margin-bottom: 12px; }
+        @media (max-width: 600px) { .input-row { grid-template-columns: 1fr 1fr; } }
+        label { font-size: 0.8rem; font-weight: 600; color: #475569; }
+        input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+        .badge-base { background: #dbeafe; color: #1e40af; }
+        .badge-ahead { background: #dcfce7; color: #166534; }
+        .badge-behind { background: #fee2e2; color: #991b1b; }
+        button { cursor: pointer; border: none; border-radius: 6px; font-weight: 500; }
+        .btn-add { background: var(--primary); color: white; padding: 8px 12px; font-size: 0.85rem; }
+        .btn-del { background: #ef4444; color: white; padding: 6px 10px; font-size: 0.8rem; }
+        .result-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .result-table th, .result-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        .result-table th { background: #f8fafc; color: #475569; }
+        .highlight-time { font-family: monospace; font-size: 1.1rem; font-weight: bold; color: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>救護秘錄器時間自動校正與換算器</h1>
+        <p class="desc">設定同一個關鍵瞬間（例如：接觸患者）時各鏡頭顯示的時間，自動對齊秒差並即時換算。</p>
+        <div class="section-title">
+            <span>步驟 1. 設定錨點時間</span>
+            <button class="btn-add" onclick="addCamera()">+ 新增秘錄器</button>
+        </div>
+        <div id="camera-list"></div>
+    </div>
+    <div class="card">
+        <div class="section-title"><span>步驟 2. 畫面時間換算查詢</span></div>
+        <div class="input-row" style="grid-template-columns: 1fr 1fr;">
+            <div><label>選擇目前觀看的秘錄器：</label><select id="query-camera" onchange="calculateTargetTimes()"></select></div>
+            <div><label>輸入該鏡頭顯示時間 (時:分:秒)：</label><input type="time" id="query-time" step="1" oninput="calculateTargetTimes()"></div>
+        </div>
+        <table class="result-table">
+            <thead><tr><th>秘錄器名稱</th><th>時差關係</th><th>對應時間</th></tr></thead>
+            <tbody id="result-list"></tbody>
+        </table>
+    </div>
+</div>
+<script>
+    let cameras = [
+        { id: 'cam1', name: '主救', time: '14:00:00', isBase: true },
+        { id: 'cam2', name: '副救', time: '14:00:25', isBase: false },
+        { id: 'cam3', name: '駕駛', time: '13:59:40', isBase: false }
+    ];
+    function timeToSeconds(t) { if(!t) return 0; const [h,m,s] = t.split(':').map(Number); return (h||0)*3600 + (m||0)*60 + (s||0); }
+    function secondsToTime(s) { s = (s % 86400 + 86400) % 86400; return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+    function addCamera() {
+        const name = prompt("請輸入新秘錄器名稱（如：姓名、職務或機號）：", `隊員 ${cameras.length + 1}`);
+        if (name === null) return;
+        cameras.push({ id: 'cam_' + Date.now(), name: name.trim() || `隊員 ${cameras.length + 1}`, time: '14:00:00', isBase: false });
+        render();
+    }
+    function removeCamera(id) {
+        if (cameras.length <= 1) return alert("至少需保留一支秘錄器！");
+        cameras = cameras.filter(c => c.id !== id);
+        if (!cameras.some(c => c.isBase)) cameras[0].isBase = true;
+        render();
+    }
+    function setBaseCamera(id) { cameras.forEach(c => c.isBase = (c.id === id)); render(); }
+    function updateCameraData(id, field, val) {
+        const c = cameras.find(cam => cam.id === id);
+        if (c) { c[field] = val; if (field === 'name') updateSelectOptions(); renderResultsOnly(); }
+    }
+    function updateSelectOptions() {
+        const sel = document.getElementById('query-camera');
+        const cur = sel.value; sel.innerHTML = '';
+        cameras.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt); });
+        if (cur && cameras.some(c => c.id === cur)) sel.value = cur;
+    }
+    function render() {
+        const container = document.getElementById('camera-list'); container.innerHTML = '';
+        const baseCam = cameras.find(c => c.isBase) || cameras[0];
+        const baseSec = timeToSeconds(baseCam.time);
+        cameras.forEach(c => {
+            const diff = timeToSeconds(c.time) - baseSec;
+            let badge = c.isBase ? `<span class="badge badge-base">基準點</span>` : (diff > 0 ? `<span class="badge badge-ahead">快 ${diff} 秒</span>` : (diff < 0 ? `<span class="badge badge-behind">慢 ${Math.abs(diff)} 秒</span>` : `<span class="badge badge-base">同步</span>`));
+            const row = document.createElement('div'); row.className = 'input-row';
+            row.innerHTML = `
+                <div><label>自訂名稱：</label><input type="text" value="${c.name}" oninput="updateCameraData('${c.id}', 'name', this.value)"></div>
+                <div><label>關鍵時間：</label><input type="time" step="1" value="${c.time}" onchange="updateCameraData('${c.id}', 'time', this.value)"></div>
+                <div><label>時差：</label><br>${badge}</div>
+                <div>${!c.isBase ? `<button class="btn-del" onclick="removeCamera('${c.id}')">刪除</button><button onclick="setBaseCamera('${c.id}')" style="background:none; border:none; color:var(--accent); font-size:0.8rem; cursor:pointer;">設為基準</button>` : '<span style="font-size:0.8rem; color:#64748b;">[基準機]</span>'}</div>
+            `;
+            container.appendChild(row);
+        });
+        updateSelectOptions(); renderResultsOnly();
+    }
+    function calculateTargetTimes() { renderResultsOnly(); }
+    function renderResultsOnly() {
+        const qId = document.getElementById('query-camera').value;
+        const qTime = document.getElementById('query-time').value;
+        const resList = document.getElementById('result-list');
+        if (!qTime || !qId) return;
+        const srcCam = cameras.find(c => c.id === qId); if (!srcCam) return;
+        const qSec = timeToSeconds(qTime), srcSec = timeToSeconds(srcCam.time);
+        resList.innerHTML = '';
+        cameras.forEach(tgt => {
+            const tgtSec = timeToSeconds(tgt.time);
+            const finalSec = qSec - srcSec + tgtSec;
+            const diff = tgtSec - srcSec;
+            let desc = tgt.id === srcCam.id ? '當前觀看鏡頭' : (diff > 0 ? `比 ${srcCam.name} 快 ${diff} 秒` : (diff < 0 ? `比 ${srcCam.name} 慢 ${Math.abs(diff)} 秒` : '時間一致'));
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><strong>${tgt.name}</strong> ${tgt.isBase ? '<small>(基準)</small>' : ''}</td><td>${desc}</td><td class="highlight-time">${secondsToTime(finalSec)}</td>`;
+            resList.appendChild(tr);
+        });
+    }
+    window.onload = () => { render(); if(cameras.length > 0) { document.getElementById('query-time').value = cameras[0].time; calculateTargetTimes(); } };
+</script>
+</body>
+</html>
